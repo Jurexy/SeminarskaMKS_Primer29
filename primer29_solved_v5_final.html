@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="en">
+  <head>
+	<!-- Univerza v Mariboru | Fakulteta za organizacijske vede -->
+	<!-- Laboratorij za kibernetiko in sisteme za podporo odločanju -->
+	<!-- Andrej Škraba 2020 -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css" integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">		
+	<link href="https://gitcdn.github.io/bootstrap-toggle/2.2.2/css/bootstrap-toggle.min.css" rel="stylesheet">
+	
+    <title>Nejc Jerala | MKS - Seminarska</title>
+  </head>
+  <body>
+
+	
+	<div class="container">
+	  <h1>Seminarska naloga - Modeliranje kompleksnih sistemov</h1>
+	  <h6>Uredil in dopolnil na podlagi Primera29 (Andrej Škraba): Nejc Jerala</h3>
+	  <hr>
+		<button onClick="štartGumb();" type="button" class="btn btn-success">Štart</button>
+		<button onClick="stop();" type="button" class="btn btn-danger">Stop</button>
+		<button onClick="koračniZagon();" type="button" class="btn btn-warning">Koračno</button>	
+		<br>
+		<br>
+		<div class="card">
+		  <div class="card-title">Nastavitve</div>
+		  <div class="card-body">
+			<b>Stikalo za prepreko:</b> <input id="toggle-one" type="checkbox" data-toggle="toggle" data-on="Vklopljena" data-off="Izklopljena" data-onstyle="success" data-offstyle="danger" onchange="fVstaviPrepreko();">
+			<br>
+			<br>
+			<label for="verjetnostPrenosa">Verjenost prenosa (med 0 in 1):</label>
+			<input type="number" value="0.5" step="0.01" id="verjetnostPrenosa" name="verjetnostPrenosa" min="0" max="1">
+			<label for="stop-čas">stopČas:</label>
+			<input type = "text" id="stop-čas" value = 5000>
+		  </div>
+		</div>
+		
+		<br>
+		Čas: <input type = "text" id="polje-s-časom" disabled="disabled" value = 0 >		
+		Rdeči: <input type = "text" id="število-rdečih" disabled="disabled" value = 0>
+		Zeleni: <input type = "text" id="število-zelenih" disabled="disabled" value = 0>
+		<br>
+		<br>			
+		Število trkov: <input type = "text" id="število-trkov" disabled="disabled" value = 0>
+		Št. Ozdravljenih oz. imunih:<input type = "text" id="število-ozdravljenih" disabled="disabled" value = 0>
+		<br>
+		<br>
+		<canvas id="graf-1" width="500" height="100" style="border: 1px dashed #099999;"></canvas>
+		<br>
+		<canvas id="graf-2" width="500" height="100" style="border: 1px dashed #099999;"></canvas>
+		<br>
+		<canvas id="graf-3" width="500" height="100" style="border: 1px dashed #099999;"></canvas>
+		<br>
+		<canvas id="graf-4" width="500" height="100" style="border: 1px dashed #099999;"></canvas>
+		<br>
+		<canvas id="graf-5" width="500" height="100" style="border: 1px dashed #099999;"></canvas>
+		<br>
+		<canvas id="platno1" width="1000" height="1000" style="border: 1px dashed #099999;"></canvas>
+		<script type="text/javascript">
+		"use strict"; // omogočimo delo z razredi ("class")
+
+		var can1, plat1, plat2; // deklariramo dve novi spremenljivki za platno ("canvas") in kontekst ctx -> plat1
+
+		// "boilerplate" koda za platno
+		can1 = document.getElementById("platno1"); // v html delu poiščemo platno1; spremenljivka can1 sedaj predstavlja platno1
+		plat1 = can1.getContext("2d"); // od tu dalje delamo s spremenljivo plat1 (za izris na platnu iz id "platno1")
+
+		 // v html delu poiščemo platno1; spremenljivka can1 sedaj predstavlja platno1
+		plat2 = can1.getContext("2d");
+
+		var agentiTabela = []; // spremenljivka s tabelo ("Array") agentov (polje agentov)
+		var številoAgentov = 500; // določimo število agentov 
+
+		var čas = 0; // spremenljivka za spremljanje koraka simulacije
+		var števecRdečih = 0; // števec rdečih agentov
+		var števecZelenih = 0; // števec zelenih agentov
+		var števecRoza = 0;
+		var graf1; // spremenljivka za objekt razreda Graf
+		var graf2; // spremenljivka za objekt razreda GrafPovprečje
+		var graf3; // spremenljivka za objekt razreda GrafDiskretnihVrednosti
+		var graf4; // spremenljivka za objekt razreda GrafDiskretnihVrednosti
+		var graf5; // spremenljivka za objekt razreda GrafDiskretnihVrednosti
+		var številoTrkovVkoraku = 0; // število trkov v koraku ne glede na barvo
+		var številoTrkovRdečegaZzelenimVkoraku = 0; // štejemo le trke rdeč-zelen
+		var povprečnoŠteviloTrkov = 3; // povprečno število trkov za reševanje prevelikega števila trkov ob inicializaciji
+
+		var številoOzdravljenih = 0; //števec ozdravljenih, oz. imunih
+		var časImunostiPoOzdravitvi = 1000; //4. naloga in določitev časa imunosti po ozdravitvi
+		var vklopPrepreke = 0; // kontrolna spremenljivka, ki določa, da je na začetku prepreka izklopljena; 1 = vklopljena
+
+		var aktiven; // za kontrolo izvedbe zanke štart/stop
+		var stikaloKoračniZagon = 0;
+		var gumbŠtartPritisnjen = 0; // da onemogočimo večkratni zagon časovnika (setTimeout)
+		var stopČas = 5000; // prekinitveni čas
+
+		plat1.fillStyle = "#ff0000"; // določimo barvo polnila, hex oblika #RRGGBB
+
+		class Agent {
+			constructor(x, y, xVel, yVel, barva, časOkužbe, časPotrebenZaOzdravitev) { // konstruktorska funkcija (ustvari agenta, t.j. poda pozicijo x, y ter hitrosti xVel, yVel) + 3. naloga dodamo časOkužbe
+				this.x = x; // spremenjivka za x koordinato
+				this.y = y; // spremenljivka za y koordinato
+				this.xVel = xVel; // sprememba x koordinate (dx - diferenca x-a)
+				this.yVel = yVel; // sprememba y koordinate (dy - diferenca y-a)
+				this.barva = barva; // določimo barvo agenta
+				this.trk = 0; // predvidimo, da je atribut traka na začetku enak 0
+				this.časOkužbe = 0;
+				this.časPotrebenZaOzdravitev = 0;
+			}
+
+			osveži () {
+				this.x = this.x + this.xVel;
+				this.y = this.y + this.yVel;
+
+				if (this.x > can1.width - 10 || this.x < 0) { // če smo na desni ali levi strani na robu platna
+					this.xVel = -this.xVel; // obrnemo smer
+				}
+				
+				//5. naloga - dodan pogoj, ki ob vsakem koraku v času preveri ali je prepreka vklopljena ali ne in glede na to spremeni obnašanje agentov - sprememba smeri, če trčijo v prepreko
+				if (vklopPrepreke == 0) { // pogledamo ali je prepreka vklopljena ali ne
+					if (this.y > can1.height -10 || this.y < 0) { // če smo na spodnjem ali zgornjem delu platna
+						this.yVel = -this.yVel; // obrnemo smer, če pridemo do konca robu platna zg. ali sp.
+					}	
+					
+					// če je x manjši od 0 ga postavimo na 0 (da se agent ne potopi v steno)
+					if(this.x < 0) {this.x = 0};
+					// če je y manjši od 0 ga postavimo na 0 (da se agent ne potopi v steno)
+					if(this.y < 0) {this.y = 0};
+					// podobno na drugem koncu platna, če je koordinata večja od širine oz. višine
+					if(this.x > can1.width - 10){this.x = can1.width - 10}; // 10 je širina agenta
+					if(this.y > can1.height - 10){this.y = can1.height - 10}; // 10 je širina agenta
+				}
+				else {
+					if (this.barva == "#ff0000" && (this.y > can1.height -510 || this.y < 0)) { // če smo na spodnjem ali zgornjem delu platna
+						this.yVel = -this.yVel; // obrnemo smer, če pridemo do konca robu platna zg. ali sp.
+					}
+					
+					if (this.y > can1.height -10 || this.y < 0) { // če smo na spodnjem ali zgornjem delu platna
+						this.yVel = -this.yVel; // obrnemo smer, če pridemo do konca robu platna zg. ali sp.
+					}	
+				} 
+
+				// če je x manjši od 0 ga postavimo na 0 (da se agent ne potopi v steno)
+				if(this.x < 0) {this.x = 0};
+				// če je y manjši od 0 ga postavimo na 0 (da se agent ne potopi v steno)
+				if(this.y < 0) {this.y = 0};	
+
+				// podobno na drugem koncu platna, če je koordinata večja od širine oz. višine
+				if(this.x > can1.width - 10){this.x = can1.width - 10}; // 10 je širina agenta
+				if(this.y > can1.height - 10){this.y = can1.height - 10}; // 10 je širina agenta		
+				
+			}
+		}
+
+		class Graf {
+				constructor(idPlatna, maxGrafX, maxGrafY, naslov){ // pri konst. funkc. imamo kot arg. id platna, maksimum po x in y osi, t.j. tri argumente
+					// "boilerplate" koda za platno
+					this.can1 = document.getElementById(idPlatna); // v html delu poiščemo platno1; spremenljivka can1 sedaj predstavlja platno1
+					this.plat1 = this.can1.getContext("2d"); // od tu dalje delamo s spremenljivo plat1 (za izris na platnu iz id "platno1")
+					
+					this.plat1.strokeStyle = "#ff0000"; // določimo barvo polnila, hex oblika #RRGGBB
+					this.x = new Array(); // ustvarimo novo tabelo x (polje), lahko bi zapisali tudi var x = []; (spremenljivka tipa Array)
+					this.y = new Array(); // ustvarimo novo tabelo y (polje), lahko bi zapisali tudi var y = []; (spremenljivka tipa Array)
+					this.širinaPlatna = this.can1.width; // upoštevamo širino in
+					this.višinaPlatna = this.can1.height; // višino platna
+					this.maxGrafX = maxGrafX; // maksimum po abscisi
+					this.maxGrafY = maxGrafY; // maksimum po ordinati
+					this.naslov = naslov; // za naslov grafa
+					
+					// napolnimo polje x
+					for (var i=0; i < this.maxGrafX + 1; i++) {
+						this.x[i] = i; // za x zapišemo [0, 1, 2, ...], t.j. vrednost i-ja
+					}
+				}  
+
+				dodajVrednostAliBrišiInDodaj(yVrednost){
+					if (this.y.length == this.maxGrafX + 1) { // če je platno veliko 10x10 imamo 11x11 točk, zaradi tega "+1"
+						this.y.splice(0, 1); // v primeru, da je tabela vrednosti polna na mestu 0 v tabeli y brišemo eno vrednost
+						this.y[this.maxGrafX] = yVrednost; // in novo vrednost dodamo na koncu polja
+					}
+					else { // če polje z vrednostmi še ni polno
+						this.y.push(yVrednost); // če tabela y še ni polna potisnemo novo vrednost v polje
+					}
+				}
+
+				izriši(yVrednost) {
+					this.dodajVrednostAliBrišiInDodaj(yVrednost);
+					this.plat1.clearRect(0, 0, this.širinaPlatna, this.višinaPlatna); // brišemo platno
+
+					this.plat1.beginPath(); // začetek izrisa
+
+					for(var i = 0; i < this.y.length; i++) {
+						this.plat1.lineTo(this.x[i]/this.maxGrafX*this.širinaPlatna, this.višinaPlatna - (this.y[i]/this.maxGrafY)*this.višinaPlatna); // za vrednost y pomnožimo naključno vrednost z višino platna, npr. 0.25 * 100 = 25
+					}
+					this.plat1.stroke(); // za prikaz črte na platnu
+
+					this.plat1.font = "11px Arial";
+					this.plat1.fillText(this.maxGrafY, 5, 10); // besedilo, y-koordinata izpisa, y-koordinata
+					this.plat1.fillText("0", 5, 95);
+					this.plat1.fillText(this.naslov, 50, 10); // naslov grafa
+				}
+			}
+
+			class GrafDiskretnihVrednosti {
+				constructor(idPlatna, maxGrafX, maxGrafY, naslov){ // pri konst. funkc. imamo kot arg. id platna, maksimum po x in y osi, t.j. tri argumente
+					// "boilerplate" koda za platno
+					this.can1 = document.getElementById(idPlatna); // v html delu poiščemo platno1; spremenljivka can1 sedaj predstavlja platno1
+					this.plat1 = this.can1.getContext("2d"); // od tu dalje delamo s spremenljivo plat1 (za izris na platnu iz id "platno1")
+					
+					this.plat1.strokeStyle = "#ff0000"; // določimo barvo polnila, hex oblika #RRGGBB
+					this.x = new Array(); // ustvarimo novo tabelo x (polje), lahko bi zapisali tudi var x = []; (spremenljivka tipa Array)
+					this.y = new Array(); // ustvarimo novo tabelo y (polje), lahko bi zapisali tudi var y = []; (spremenljivka tipa Array)
+					this.širinaPlatna = this.can1.width; // upoštevamo širino in
+					this.višinaPlatna = this.can1.height; // višino platna
+					this.maxGrafX = maxGrafX; // maksimum po abscisi
+					this.maxGrafY = maxGrafY; // maksimum po ordinati
+					this.naslov = naslov; // za naslov grafa
+					
+					// napolnimo polje x
+					for (var i=0; i < this.maxGrafX + 1; i++) {
+						this.x[i] = i; // za x zapišemo [0, 1, 2, ...], t.j. vrednost i-ja
+					}
+				}  
+
+				dodajVrednostAliBrišiInDodaj(yVrednost){
+					if (this.y.length == this.maxGrafX + 1) { // če je platno veliko 10x10 imamo 11x11 točk, zaradi tega "+1"
+						this.y.splice(0, 1); // v primeru, da je tabela vrednosti polna na mestu 0 v tabeli y brišemo eno vrednost
+						this.y[this.maxGrafX] = yVrednost; // in novo vrednost dodamo na koncu polja
+					}
+					else { // če polje z vrednostmi še ni polno
+						this.y.push(yVrednost); // če tabela y še ni polna potisnemo novo vrednost v polje
+					}
+				}
+
+				izriši(yVrednost) {
+					this.dodajVrednostAliBrišiInDodaj(yVrednost);
+					this.plat1.clearRect(0, 0, this.širinaPlatna, this.višinaPlatna); // brišemo platno
+
+					this.plat1.beginPath(); // začetek izrisa
+
+					for(var i = 0; i < this.y.length; i++) {
+						this.plat1.beginPath(); // začetek izrisa
+						this.plat1.lineTo(this.x[i]/this.maxGrafX*this.širinaPlatna, this.višinaPlatna); // 100 je ničla, t.j. višina platna
+						this.plat1.lineTo(this.x[i]/this.maxGrafX*this.širinaPlatna, this.višinaPlatna - (this.y[i]/this.maxGrafY)*this.višinaPlatna); // za vrednost y pomnožimo naključno vrednost z višino platna, npr. 0.25 * 100 = 25
+						this.plat1.stroke(); // za prikaz črte na platnu
+					}
+
+					this.plat1.font = "11px Arial";
+					this.plat1.fillText(this.maxGrafY, 5, 10); // besedilo, y-koordinata izpisa, y-koordinata
+					this.plat1.fillText("0", 5, 95);
+					this.plat1.fillText(this.naslov, 50, 10); // naslov grafa
+					
+				}
+			}
+
+			class GrafPovprečja {
+				constructor(idPlatna, maxGrafX, maxGrafY, dolžinaOkna, naslov){
+					// "boilerplate" koda za platno
+					this.can1 = document.getElementById(idPlatna); // v html delu poiščemo platno1; spremenljivka can1 sedaj predstavlja platno1
+					this.plat1 = this.can1.getContext("2d"); // od tu dalje delamo s spremenljivo plat1 (za izris na platnu iz id "platno1")
+					
+					this.plat1.strokeStyle = "#ff0000"; // določimo barvo polnila, hex oblika #RRGGBB
+					this.x = new Array(); // ustvarimo novo tabelo x (polje), lahko bi zapisali tudi var x = []; (spremenljivka tipa Array)
+					this.y = new Array(); // ustvarimo novo tabelo y (polje), lahko bi zapisali tudi var y = []; (spremenljivka tipa Array)
+					this.širinaPlatna = this.can1.width; // spremenljivka za širino platna
+					this.višinaPlatna = this.can1.height; // višina platna
+					this.maxGrafX = maxGrafX; // maksimum po abscisi
+					this.maxGrafY = maxGrafY; // maksimum po ordinati
+					this.yOkno = new Array(); // polje ("Array") za okno y vrednosti za izračun drsečega povprečja
+					this.povprečnaVrednost = 0 // povprečna vrednost v oknu
+					this.dolžinaOkna = dolžinaOkna; // povprečje preračunavamo za 50 vrednosti
+					this.naslov = naslov; // za naslov grafa
+					
+					// napolnimo polje x
+					for (var i=0; i < this.maxGrafX + 1; i++) {  // platno vel. 10x10 ima 11x11 točk
+						this.x[i] = i; // za x zapišemo [0, 1, 2, ...], t.j. vrednost i-ja
+					}
+				}  
+
+				dodajVrednostAliBrišiInDodaj(yVrednost){
+
+					this.yOkno.push(yVrednost); // naključno vrednost potisnemo v okno oz. polje
+
+					if(this.yOkno.length == this.dolžinaOkna + 1){ // če je platno veliko 10x10 imamo 11x11 točk, začnemo z 0
+						this.yOkno.splice(0, 1); // na mestu 0 v polju odrežemo eno vrednost
+						this.povprečnaVrednost = this.yOkno.reduce(function(a, b){return a + b})/this.dolžinaOkna; // izračunamo povprečje
+					}
+					else {
+						this.povprečnaVrednost = 0; // do zapolnitve dolžine okna, t.j. npr. dokler ne napolnimo 50 vrednosti vrnemo vrednost 0
+					}
+
+
+					if (this.y.length == this.maxGrafX + 1) { // če je platno veliko 10x10 imamo 11x11 točk, zaradi tega "+1"
+						this.y.splice(0, 1); // v primeru, da je tabela vrednosti polna na mestu 0 v tabeli y brišemo eno vrednost
+						this.y[this.maxGrafX] = this.povprečnaVrednost; // in novo vrednost dodamo na koncu polja
+					}
+					else { // če polje z vrednostmi še ni polno
+						this.y.push(this.povprečnaVrednost); // če tabela y še ni polna potisnemo novo vrednost v polje
+					}
+				}
+
+				izriši(yVrednost) {
+					this.dodajVrednostAliBrišiInDodaj(yVrednost);
+					this.plat1.clearRect(0, 0, this.širinaPlatna, this.višinaPlatna); // brišemo platno
+
+					this.plat1.beginPath(); // začetek izrisa
+
+					for(var i = 0; i < this.y.length; i++) {
+						this.plat1.lineTo(this.x[i]/this.maxGrafX*this.širinaPlatna, this.višinaPlatna - (this.y[i]/this.maxGrafY)*this.višinaPlatna); // za vrednost y pomnožimo naključno vrednost z višino platna, npr. 0.25 * 100 = 25
+					}
+					this.plat1.stroke(); // za prikaz črte na platnu
+
+					this.plat1.font = "11px Arial";
+					this.plat1.fillText(this.maxGrafY, 5, 10); // besedilo, y-koordinata izpisa, y-koordinata
+					this.plat1.fillText("0", 5, 95);
+					this.plat1.fillText(this.naslov, 50, 10); // naslov grafa
+				}
+			}    
+
+		// funkcija, ki preveri bližino agentov
+		// določimo razdaljo med agenti
+		// preverimo razdaljo vsakega agenta z vsakim agentom
+		// v primeru, da sta agenta blizu, glede na podano razdaljo trka, izvedemo trk
+		function preveriBlližinoAgentov() {
+			agentiTabela.forEach(function(agent){
+				agent.trk = 0; // atribut trka za vse agente postavimo na 0
+			});
+			številoTrkovVkoraku = 0; // števec postavimo na 0 - ob vsakem koraku ga ponastavimo
+			številoTrkovRdečegaZzelenimVkoraku = 0; // ponastavite števca rdeč-zelen
+			for(var i = 0; i<številoAgentov; i++) {
+				var A = agentiTabela[i]; // uvedemo novo spremenljivko zaradi berljivosti kode
+				for(var j = i + 1; j<številoAgentov; j++) {
+					var B = agentiTabela[j];
+					// izračunamo razlike koordinat
+					var dx = B.x - A.x;
+					var dy = B.y - A.y;
+					var dist = Math.sqrt(dx*dx + dy*dy); // določimo razdaljo po Pitagorovem izreku	
+
+					// če je razlika v razdalji med agentoma manjša od 10 izvedemo trk
+					if (dist < 10 ) { // če je pogoj, da sta agenta dovolj blizu izpolnjen
+						var p = document.getElementById("verjetnostPrenosa").value;  //2. naloga - dodamo vrednost prenosa iz input fielda
+						
+						A.trk = 1; // atribut trka prvega postavimo na 1
+						B.trk = 1; // atribut trka drugega agenta postavimo na 1	
+						
+						številoTrkovVkoraku++; // povečamo števec za 1	
+						izvediTrk(i, j, p); // izvedemo trk med agentoma z indeksoma i in j
+					}
+				}
+			}
+			return številoTrkovVkoraku;
+		}
+
+		//3. in 4. naloga - funkcija, ki preverja število ozdravljenih in imunih; roza barva so imuni - dodana v osnovno zanko
+		//funkcija ob vsakem koraku preverja pri agentih njihove okužbe - koliko časa trajajo, in če je že čas, da ozdravijo, ter jim tudi spremeni barvo
+		function preveriŠteviloOzdravljenih() {
+			agentiTabela.forEach(function(agent){
+				var časOkužbe = agent.časOkužbe;
+				var časZaOzdravitev = agent.časPotrebenZaOzdravitev;
+				
+				var časOzdravitve = časOkužbe + časZaOzdravitev;
+
+				var časIzgubeImunosti = časOzdravitve + časImunostiPoOzdravitvi;   		
+				
+				if (agent.barva == "#ff0000" && čas > časOzdravitve){
+					//alert("čas: " + čas + ", čas okužbe: " + časOkužbe + ", čas za ozdravitev: " + časZaOzdravitev + ", čas ozdravitve: " + časOzdravitve);  //debug za čas okužbe in časa zdravljenja
+					agent.barva = "#FF69B4";
+					
+					številoOzdravljenih++;
+				}		
+				
+				//4. naloga, agent je bil po ozdravitvi nekaj časa imun (roza)
+				if (agent.barva == "#FF69B4" && čas > časIzgubeImunosti){
+					
+					agent.barva = "#00ff00";
+					
+					številoOzdravljenih--; //ko se vrne nazaj na zeleno barvo, ga tudi kot imunega ne štejemo več
+				}			
+				
+			});
+			return številoOzdravljenih;
+			
+		}
+
+		function randomIntFromInterval(min, max) { // min and max included - funkcija, ki generira random število med podanima vrednostima
+		  return Math.floor(Math.random() * (max - min + 1) + min);
+		}
+
+		// funkcija, ki izvede trk med agentoma z indeksoma i in j
+		function izvediTrk(indeksPrvega, indeksDrugega, verjetnostPrenosa) {
+			var x1 = agentiTabela[indeksPrvega].x; // uvedemo novo spr. zaradi boljše berljivosti kode
+			var y1 = agentiTabela[indeksPrvega].y;
+			var x2 = agentiTabela[indeksDrugega].x;
+			var y2 = agentiTabela[indeksDrugega].y;
+			var dx = x2 - x1;
+			var dy = y2 - y1;
+			var dist = Math.sqrt(dx*dx + dy*dy);
+			var razdaljaOdboja = 6; // spr., ki določa za koliko se agenta ob trku odbijeta oz. razmakneta
+
+			// izračunamo normalizirano razdaljo
+			var normX = dx/dist;
+			var normY = dy/dist;
+
+			// določimo sredinsko točko
+			var sredinskaTočkaX = (x1 + x2)/2;
+			var sredinskaTočkaY = (y1 + y2)/2;
+
+			// določimo nove pozicije
+			agentiTabela[indeksPrvega].x = sredinskaTočkaX - normX * razdaljaOdboja;
+			agentiTabela[indeksPrvega].y = sredinskaTočkaY - normY * razdaljaOdboja;
+			agentiTabela[indeksDrugega].x = sredinskaTočkaX + normX * razdaljaOdboja;
+			agentiTabela[indeksDrugega].y = sredinskaTočkaY + normY * razdaljaOdboja;
+
+			// izmenjamo hitrosti
+			var tempX = agentiTabela[indeksPrvega].xVel;
+			var tempY = agentiTabela[indeksPrvega].yVel;
+			agentiTabela[indeksPrvega].xVel = agentiTabela[indeksDrugega].xVel;
+			agentiTabela[indeksPrvega].yVel = agentiTabela[indeksDrugega].yVel;
+			agentiTabela[indeksDrugega].xVel = tempX;
+			agentiTabela[indeksDrugega].yVel = tempY;
+			
+			//2. naloga - dodamo verjetnost trka - spodaj v pogoju še dodamo preverjanje glede na naš input field; vir za enostavno random funkcijo glede na verjetnost:https://stackoverflow.com/questions/26271868/is-there-a-simpler-way-to-implement-a-probability-function-in-javascript
+			var probability = function(n) {
+				return !!n && Math.random() <= n;
+			};
+
+			// če trčita rdeči in zeleni, zeleni postane rdeč; dodan pogoj za verjetnost (2. naloga)
+			// če je prvi rdeč ("#ff0000") in drugi zelen ("#00ff00")	
+			if(agentiTabela[indeksPrvega].barva == "#ff0000" && agentiTabela[indeksDrugega].barva == "#00ff00" && probability(verjetnostPrenosa) == true) {
+				agentiTabela[indeksDrugega].barva = "#ff0000"; // drugega agenta, ki je bil zelen pobarvamo rdeče
+				agentiTabela[indeksDrugega].časOkužbe = čas; // 3. naloga - ob okužbi, nastavimo čas okužbe
+				agentiTabela[indeksDrugega].časPotrebenZaOzdravitev = randomIntFromInterval(500,2000); // 3. naloga - ob okužbi, nastavimo naključno tudi čas potreben za ozdravitev
+				
+				//alert(agentiTabela[indeksDrugega].časOkužbe + " in " + agentiTabela[indeksDrugega].ČasPotrebenZaOzdravitev); test za dodeljene vrednosti
+				
+				številoTrkovRdečegaZzelenimVkoraku++;
+			}
+
+			// če je prvi zelen ("#00ff00") in drugi rdeč ("#ff0000")
+			if(agentiTabela[indeksPrvega].barva == "#00ff00" && agentiTabela[indeksDrugega].barva == "#ff0000" && probability(verjetnostPrenosa) == true) {
+				agentiTabela[indeksPrvega].barva = "#ff0000"; // prvega agenta, ki je bil zelen pobarvamo rdeče
+				agentiTabela[indeksPrvega].časOkužbe = čas; // 3. naloga - ob okužbi, nastavimo čas okužbe
+				agentiTabela[indeksPrvega].časPotrebenZaOzdravitev = randomIntFromInterval(500,2000); // 3. naloga - ob okužbi, nastavimo naključno tudi čas potreben za ozdravitev
+				
+				//alert(agentiTabela[indeksPrvega].časOkužbe + " in " + agentiTabela[indeksPrvega].ČasPotrebenZaOzdravitev); test za dodeljene vrednosti
+				
+				številoTrkovRdečegaZzelenimVkoraku++;
+			} 
+		}
+
+		function izrišiAgente(agenti){
+			agenti.forEach(function(agent){
+				if(agent.barva == "#ff0000"){
+					števecRdečih++;
+				}
+				if(agent.barva == "#00ff00"){
+					števecZelenih++;
+				}
+				if(agent.barva == "#FF69B4"){
+					števecRoza++;
+				}
+				plat1.fillStyle = agent.barva; // določimo barvo izrisa glede na lastnost agenta
+				plat1.fillRect(agent.x, agent.y, 10, 10); // x zg. L kot, y zg. L kot, širina, višina
+
+				if(agent.trk == 1){
+					// izrišemo modri okvir v primeru trka
+					plat1.beginPath();
+					plat1.lineWidth="3";
+					plat1.strokeStyle="blue";
+					plat1.rect(agent.x, agent.y, 10, 10);
+					plat1.stroke();
+				}
+			});
+		}
+
+		//rjava prepreka za omejitev gibanja
+		function izrišiPrepreko(){
+			
+			if (vklopPrepreke == 1) {
+				plat1.strokeStyle="brown";
+				plat1.lineWidth = 1;
+				plat1.beginPath();
+				plat1.moveTo(0, 500);
+				plat1.lineTo(1000, 500);
+				plat1.stroke();		
+			}
+			else {
+				plat1.strokeStyle="white";
+				plat1.lineWidth = 4;
+				plat1.beginPath();
+				plat1.moveTo(0, 500);
+				plat1.lineTo(1000, 500);
+				plat1.stroke();
+			}    
+		}
+		
+		//funkcija, ki se sproži vsakič, ko kliknemo gumb, oz. toggle za vklop in izklop prepreke - samo spreminja spremenljivko glede na prejšnje stanje - ON/OFF logika
+		function fVstaviPrepreko(){			
+			if (vklopPrepreke == 0) {
+				vklopPrepreke = 1;		
+			}
+			else {
+				vklopPrepreke = 0;
+			}    
+		}
+
+		function zanka() {
+			plat1.clearRect(0, 0, can1.width, can1.height); // brišemo celotno platno
+			
+			izrišiPrepreko(); //kličemo funkcijo, ki glede na spremenljivko prepreke izriše ali pobriše prepreko
+
+			// števca rdečih in zelenih postavimo na 0
+			števecRdečih = 0;
+			števecZelenih = 0;
+			števecRoza = 0;
+
+			// izpišemo število trkov
+			var številoTrkov = preveriBlližinoAgentov();
+			document.getElementById("število-trkov").value=številoTrkov;
+			
+			// izpišemo število število ozdraveljenih oz. imunih
+			var številoOzdraveljenih = preveriŠteviloOzdravljenih();
+			document.getElementById("število-ozdravljenih").value=številoOzdraveljenih;	
+
+			for(var i = 0; i < številoAgentov; i++) {
+				agentiTabela[i].osveži(); // imamo več agentov (z indeksom i)
+			}
+
+			izrišiAgente(agentiTabela); // izrišemo agente
+
+			graf1.izriši(števecRdečih); // na platnu bomo prikazali število rdečih
+			graf2.izriši(številoTrkovRdečegaZzelenimVkoraku);
+			graf3.izriši(številoTrkov);
+			graf4.izriši(številoTrkovRdečegaZzelenimVkoraku);
+			graf5.izriši(številoOzdraveljenih);
+			
+			čas++; // čas ob vsakem klicu funkcije zanka za ena povečamo
+
+			document.getElementById("polje-s-časom").value = čas;
+			document.getElementById("število-rdečih").value = števecRdečih;
+			document.getElementById("število-zelenih").value = števecZelenih;
+
+			if (stikaloKoračniZagon == 1){ // če smo v modusu koračne izvedbe
+				clearTimeout(aktiven);
+			}
+		}
+
+		for(var i = 0; i < številoAgentov; i++) {
+			// v tabelo agentov vpišemo agente z naključnimi koordinatami
+			// ter hitrostmi med -1 in +1
+			// agenti imajo pri kreiranju zeleno barvo
+			agentiTabela[i] = new Agent(Math.random() * (can1.width - 10), Math.random() * (can1.height - 10), 0.5 * Math.random() - 0.25, 0.5 * Math.random() - 0.25, "#00ff00", 0, 0);
+			
+			// 1. naloga - dodamo preverjanje postavitev tako, da na začetku ni trkov	
+			var noviX = agentiTabela[i].x;
+			var noviY = agentiTabela[i].y;		
+			
+			for (var j = 0; j<i; j++){
+				var obstojeciX = agentiTabela[j].x;
+				var obstojevciY = agentiTabela[j].y;		
+				
+				// izračunamo razlike koordinat
+				var dx = obstojeciX - noviX;
+				var dy = obstojevciY - noviY;
+				var dist = Math.sqrt(dx*dx + dy*dy); // določimo razdaljo po Pitagorovem izreku	
+				//alert(dist);
+				// če je razlika v razdalji med agentoma manjša od 10 izvedemo trk
+				if (dist < 10) { // če je pogoj, da sta agenta dovolj blizu izpolnjen					
+					do {
+						agentiTabela[i].x = Math.random() * (can1.width - 10); 
+						agentiTabela[i].y = Math.random() * (can1.height - 10); 
+						
+						noviX = agentiTabela[i].x;
+						noviY = agentiTabela[i].y;
+						
+						dx = obstojeciX - noviX;
+						dy = obstojevciY - noviY;
+						dist = Math.sqrt(dx*dx + dy*dy);
+						
+						if (dist < 10){
+							številoTrkovVkoraku++;
+						}					
+					} while (dist < 10 && številoTrkovVkoraku <= povprečnoŠteviloTrkov);	
+				}
+			}		
+		}
+
+		agentiTabela[0].barva = "#ff0000"; // prvemu agentu v tabeli agentov določimo rdečo barvo
+		agentiTabela[0].časPotrebenZaOzdravitev = randomIntFromInterval(500,2000); // 3. naloga - prvemu agentu tudi določimo naključni čas za ozdravitev 
+
+		graf1 = new Graf("graf-1", 5000, 500, "Št. rdečih"); // ustvarimo nov objekt z imenom graf1 razreda Graf
+											   // arg.: platnoID, maks. po x, maks. po y 
+		graf2 = new GrafPovprečja("graf-2", 5000, 0.5, 300, "Prenosi/korak"); // arg.: platnoID, maks. po x, maks. po y, 300 povp. 
+		graf3 = new GrafDiskretnihVrednosti("graf-3", 5000, 10, "Število vseh trkov v koraku"); // arg.: platnoID, maks. po x, maks. po y, 300 povp. 
+		graf4 = new GrafDiskretnihVrednosti("graf-4", 5000, 5, "Število trkov rdečega z zelnim v koraku"); // arg.: platnoID, maks. po x, maks. po y, 300 povp. 
+		graf5 = new GrafDiskretnihVrednosti("graf-5", 5000, 300, "Število ozdravljenih oz. imunih"); // arg.: platnoID, maks. po x, maks. po y, 300 povp. 
+
+
+		// funkcija, ki preverja ali je bil gumb Štart že enkrat pritisnjen
+		// če je bil že pritisnjen preprečimo ponoven zagon časovnika
+		function štartGumb(){
+			stopČas = document.getElementById("stop-čas").value; // prekinitveni čas preberemo iz uporabniškega vmesnik
+			if(gumbŠtartPritisnjen == 0){ // če gumb za zagon še ni bil pritisnjen
+				gumbŠtartPritisnjen = 1; // postavimo vrednost na 1 - da je bil gumb pritisnjen
+				štart(); // poženemo zanko
+			}
+		}
+
+		// funkcija za zagon modela
+		function štart(){			
+			if(čas >= stopČas){ // če presežemo čas prekinitve
+				stikaloKoračniZagon = 1;
+				clearTimeout(aktiven);
+			}
+			else {
+				zanka(); // klic funkcije zanka
+				aktiven = setTimeout(štart, 1); // po določenem številu ms se izvede funkcija zanka | časovnik je v sprem. aktiven
+			}
+		}
+
+		// funkcija za zaustavitev modela
+		function stop(){
+			clearTimeout(aktiven);
+			gumbŠtartPritisnjen = 0; // povemo, da gumb Štart ni več aktiven, lahko ga ponovno pritisnemo
+		}
+
+		// funkcija za koračni zagon
+		function koračniZagon(){
+			if(aktiven) clearTimeout(aktiven);
+			stikaloKoračniZagon = 1;
+			zanka(); // poženemo izvedbo glavne zanke
+		}
+
+		</script>
+	</div>
+	<div class="container">	
+		<div id="accordion">
+		  <div class="card">
+			<div class="card-header" id="headingOne">
+			  <h5 class="mb-0">
+				<button class="btn btn-link" data-toggle="collapse" data-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+				  Opis problema
+				</button>
+			  </h5>
+			</div>
+
+			<div id="collapseOne" class="collapse show" aria-labelledby="headingOne" data-parent="#accordion">
+			  <div class="card-body">
+				Problematika v modelu je bila, da model ni bil dodelan tako, da bi si lahko zamislili en scenarij glede na trenutno situacijo z epedemijo.
+				<br>
+				<br>
+				Model smo dodelali tako, da smo:
+				<ol>
+					<li>se v prvem koraku znebili nepotrebnih trkov (sprotna menjava koordinat pri dodajanju agentov v tabelo, če je pri dodajanju prišlo do trka z že obstoječimi v tabeli)</li>
+					<li>dodali možnost spreminjanja možnosti prenosa okužbe (vrednosti med 0 in 1, kjer je 1 = 100%)</li>
+					<li>ob dodajanju agentov v tabeli, dodali še nekaj atributov, kjer imajo možnost shraniti podatke o okužbah (čas okužbe in čas potreben za ozdravitev); čas okužbe pridobijo v koraku, kjer so se okužili, čas potreben za ozdravitev pa naključno med 500 in 2000 časovnih enot. Glede na čas ozdravitev se potem tudi izračuna, kdaj agent postane "ozdravljen" in pa tudi imun. Čas imunosti smo fiksno določili v spremenljivko na 1000.</li>
+					<li>dodali graf ozdravljenih/imunih oseb, ki se povečuje in zmanjšuje glede na trenutno situacijo - šteje se roza agente, ki so imuni</li>
+					<li>dodali možnost vklopa in izklopa prepreke, ki simulira nekakšno izolacijo okuženih od neokuženih. Ko je vklopljena prepreka, okuženi ne smejo iti čez, zdravi grejo pa lahko.</li>
+				</ol>				
+				<br>
+				Z zadnjo točko bi se lahko igrali s scenarijem, ki so sedaj zelo popularni. Na primer okužbe v DSO-jih. Tako recimo lahko, ko zaznamo okužbo, vklopimo prepreko, ki izolira polovico območja, ter opazujemo kaj se dogaja z agenti. Prehajajo lahko samo zdravi (npr. zaposleni). Tisti, ki so v zaprtem območju se hitreje prekužijo, medtem ko tisti zdravi praviloma ne zbolijo. 
+			  </div>
+			</div>
+		  </div>
+		  <div class="card">
+			<div class="card-header" id="headingTwo">
+			  <h5 class="mb-0">
+				<button class="btn btn-link collapsed" data-toggle="collapse" data-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+				  Opis modela z enačbami in algoritmi
+				</button>
+			  </h5>
+			</div>
+			<div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordion">
+			  <div class="card-body">
+				Model uporablja nekaj enačb oz. algoritmov:
+				<ol>
+					<li>Pitagorov izrek za izračun bližine agentov</li>
+					<li>Enostavni izračun za čas ozdravitve: ČasOkužbe + ČasPotrebenZaOzdravitev</li>
+					<li>Enostavni izračun za čas imunosti: ČasOzdravitve iz prejšnje točke + časImunosti</li>
+					<li>Veliko je uporabe Math.Random funkcije, ki nam omogoča, da so pozicije agentov, hitrosti agentov, ter čas potreben za ozdravitev naključni</li>						
+				</ol>
+			  </div>
+			</div>
+		  </div>		  
+		</div>
+		  <div class="card">
+			<div class="card-header" id="headingThree">
+			  <h5 class="mb-0">
+				<button class="btn btn-link collapsed" data-toggle="collapse" data-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+				  Zanimivosti:
+				</button>
+			  </h5>
+			</div>
+			<div id="collapseThree" class="collapse" aria-labelledby="headingThree" data-parent="#accordion">
+			  <div class="card-body">
+				Nekaj zanimivih delov:
+				<ol>
+					<li>Za 1. nalogo smo uporabili do while ukaz, ki je toliko časa preverjal, ali je razdalja manjša od 10, da z nobenim agentom ni prišlo do trka (od vrstice 565 naprej)</li>
+					<li>Funkcija, ki glede med podano min in max vrednostjo vrne naključno število (randomIntFromInterval(min, max): return Math.floor(Math.random() * (max - min + 1) + min); - s tem smo ob okužbi, določali naključne čase za ozdravitev. (dobil namig iz Stackoverflow)</li>
+					<li>Razširili smo model agenta z atributi: časOkužbe, časPotrebenZaOzdravitev</li>
+					<li>Barvanje ozdravelih agentov in preverjanje, kdaj do tega pride s funkcijo preveriŠteviloOzdravljenih() - vrstica 354.</li>					
+				</ol>	
+			  </div>
+			</div>
+		  </div>		  
+		</div>
+	<div>
+	<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx" crossorigin="anonymous"></script>
+	<script src="https://gitcdn.github.io/bootstrap-toggle/2.2.2/js/bootstrap-toggle.min.js"></script>
+  </body>
+</html>
